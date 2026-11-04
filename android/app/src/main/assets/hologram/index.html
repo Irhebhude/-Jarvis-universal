@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>JARVIS UNIVERSAL</title>
+<style>
+  :root {
+    --cyan: #3fe0ff;
+    --mint: #6bffd0;
+    --dim: #7593a8;
+    --text: #d7f6ff;
+    --void: #04070e;
+    --warn: #ffc46b;
+    --err: #ff6b8a;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; overflow: hidden;
+    background: radial-gradient(circle at 50% 38%, #0a1a2b 0%, var(--void) 62%);
+    color: var(--text);
+    font-family: "SF Pro Display", "Roboto", "Segoe UI", system-ui, sans-serif;
+    user-select: none;
+  }
+  #stage { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+  .hud { position: absolute; inset: 0; pointer-events: none; display: flex; flex-direction: column; }
+
+  header {
+    padding: 16px 18px 0; display: flex; justify-content: space-between; align-items: flex-start;
+    letter-spacing: 0.34em; font-size: 10px; text-transform: uppercase; color: var(--cyan);
+  }
+  header .brand { font-weight: 600; opacity: 0.9; }
+  header .brand small { display: block; letter-spacing: 0.2em; color: var(--dim); font-size: 9px; margin-top: 4px; }
+  .status-dot { display: flex; align-items: center; gap: 6px; color: var(--dim); letter-spacing: 0.12em; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dim); box-shadow: 0 0 8px currentColor; }
+  .dot.online { background: var(--mint); color: var(--mint); }
+  .dot.offline { background: var(--err); color: var(--err); }
+
+  .center-info {
+    flex: 1; display: flex; flex-direction: column; justify-content: flex-end;
+    padding: 0 22px 8px; gap: 6px; pointer-events: none;
+  }
+  .phase {
+    font-size: 11px; letter-spacing: 0.4em; text-transform: uppercase; color: var(--mint);
+    opacity: 0.95;
+  }
+  .task { font-size: 15px; line-height: 1.35; color: var(--text); min-height: 20px; text-shadow: 0 0 12px rgba(63,224,255,.25); }
+  .detail { font-size: 11px; color: var(--dim); min-height: 14px; font-family: ui-monospace, monospace; }
+  .error { font-size: 12px; color: var(--err); min-height: 0; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 22px 10px; }
+  .chip {
+    font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; padding: 4px 8px;
+    border: 1px solid rgba(63,224,255,.28); border-radius: 999px; color: var(--dim);
+    background: rgba(10,25,40,.5); backdrop-filter: blur(4px);
+  }
+  .chip.ok { color: var(--mint); border-color: rgba(107,255,208,.45); }
+  .chip.bad { color: var(--warn); border-color: rgba(255,196,107,.35); }
+
+  .composer { display: flex; gap: 8px; padding: 0 16px 10px; pointer-events: auto; }
+  .composer input {
+    flex: 1; min-width: 0; background: rgba(10,25,40,.72); border: 1px solid rgba(63,224,255,.25);
+    border-radius: 12px; padding: 11px 13px; color: var(--text); font-size: 13px; outline: none;
+  }
+  .composer input::placeholder { color: #4d6a7d; }
+  .composer button.send {
+    background: rgba(63,224,255,.14); border: 1px solid rgba(63,224,255,.4); color: var(--cyan);
+    border-radius: 12px; padding: 0 16px; font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
+  }
+
+  .controls {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 0 16px 20px; pointer-events: auto;
+  }
+  .btn {
+    flex: 1; text-align: center; font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+    padding: 11px 6px; border-radius: 14px; border: 1px solid rgba(63,224,255,.3);
+    background: rgba(10,25,40,.65); color: var(--text);
+  }
+  .btn.active { border-color: var(--mint); color: var(--mint); box-shadow: 0 0 18px rgba(107,255,208,.18) inset; }
+  .btn.danger { border-color: rgba(255,107,138,.5); color: var(--err); }
+  .btn:active { transform: scale(0.98); }
+
+  #toast {
+    position: absolute; left: 50%; bottom: 130px; transform: translateX(-50%);
+    background: rgba(10,25,40,.92); border: 1px solid rgba(63,224,255,.35); color: var(--text);
+    font-size: 12px; padding: 9px 14px; border-radius: 10px; opacity: 0; transition: opacity .25s;
+    pointer-events: none; max-width: 84%; text-align: center;
+  }
+  #toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+
+<div class="hud">
+  <header>
+    <div class="brand">JARVIS UNIVERSAL<small id="deviceLabel">device</small></div>
+    <div class="status-dot"><span class="dot" id="coreDot"></span><span id="coreLabel">core</span></div>
+  </header>
+
+  <div class="center-info">
+    <div class="phase" id="phaseLabel">idle</div>
+    <div class="task" id="taskLabel"></div>
+    <div class="detail" id="detailLabel"></div>
+    <div class="error" id="errorLabel"></div>
+  </div>
+
+  <div class="chips" id="chips"></div>
+
+  <div class="composer">
+    <input id="commandInput" type="text" autocomplete="off" spellcheck="false"
+           placeholder="Type a command (works like voice)" />
+    <button class="send" id="sendBtn">Send</button>
+  </div>
+
+  <div class="controls">
+    <button class="btn" id="micBtn">Mic on</button>
+    <button class="btn" id="listenBtn">Wake word</button>
+    <button class="btn" id="setupBtn">Setup</button>
+    <button class="btn" id="memoryBtn">Memory</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(() => {
+  "use strict";
+
+  const state = {
+    phase: "idle",
+    amplitude: 0,
+    muted: false,
+    wake: false,
+    core: null,
+    task: "",
+    detail: "",
+    error: "",
+    status: null,
+    blink: 0,
+    nextBlink: performance.now() + 2500,
+    t: 0
+  };
+
+  const canvas = document.getElementById("stage");
+  const ctx = canvas.getContext("2d");
+  let W = 0, H = 0, DPR = 1;
+
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2.5);
+    W = canvas.clientWidth;
+    H = canvas.clientHeight;
+    canvas.width = Math.floor(W * DPR);
+    canvas.height = Math.floor(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener("resize", resize);
+
+  function toast(message) {
+    const el = document.getElementById("toast");
+    el.textContent = message;
+    el.classList.add("show");
+    clearTimeout(el._timer);
+    el._timer = setTimeout(() => el.classList.remove("show"), 2600);
+  }
+
+  /* ---------------------------------------------------------------- avatar */
+
+  function drawBackground(t) {
+    const g = ctx.createRadialGradient(W / 2, H * 0.36, 10, W / 2, H * 0.4, Math.max(W, H) * 0.75);
+    g.addColorStop(0, "rgba(14,48,74,0.55)");
+    g.addColorStop(0.55, "rgba(6,16,28,0.35)");
+    g.addColorStop(1, "rgba(4,7,14,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    // Perspective floor grid
+    ctx.save();
+    ctx.strokeStyle = "rgba(63,224,255,0.10)";
+    ctx.lineWidth = 1;
+    const horizon = H * 0.72;
+    for (let i = 0; i < 14; i++) {
+      const y = horizon + Math.pow(i / 13, 2.1) * (H - horizon);
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(W, y);
+      ctx.stroke();
+    }
+    for (let i = -8; i <= 8; i++) {
+      ctx.beginPath();
+      ctx.moveTo(W / 2 + i * 14, horizon);
+      ctx.lineTo(W / 2 + i * (W / 7), H);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Floating motes
+    for (let i = 0; i < 26; i++) {
+      const seed = i * 97.31;
+      const x = ((seed * 13.7 + t * (6 + (i % 5))) % (W + 60)) - 30;
+      const y = ((seed * 7.1 + Math.sin(t * 0.4 + i) * 24 + i * 37) % (H * 0.85)) + H * 0.02;
+      const a = 0.10 + 0.16 * Math.abs(Math.sin(t * 0.8 + i));
+      ctx.fillStyle = `rgba(107,255,208,${a})`;
+      ctx.beginPath();
+      ctx.arc(x, y, 1.3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function drawRings(cx, cy, scale, t) {
+    const speaking = state.phase === "speaking";
+    const listening = state.phase === "listening" || state.phase === "capturing";
+    const base = 118 * scale;
+    for (let i = 0; i < 3; i++) {
+      const pulse = speaking ? state.amplitude * (14 + i * 8) : listening ? 4 + Math.sin(t * 2 + i) * 3 : 2;
+      const r = base + i * 26 * scale + pulse;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(63,224,255,${0.20 - i * 0.05})`;
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+    }
+    // Rotating arc segments
+    const arcR = base + 40 * scale;
+    for (let i = 0; i < 3; i++) {
+      const start = t * (0.35 + i * 0.18) + i * 2.1;
+      const len = 0.7 + (speaking ? state.amplitude * 1.5 : 0.15);
+      ctx.beginPath();
+      ctx.arc(cx, cy, arcR + i * 10 * scale, start, start + len);
+      ctx.strokeStyle = `rgba(107,255,208,${0.35 - i * 0.09})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  }
+
+  function drawAvatar(t) {
+    const scale = Math.min(W / 420, H / 760);
+    const cx = W / 2;
+    const cy = H * 0.36;
+    const bob = Math.sin(t * 0.9) * 2.4 * scale;
+    const y = cy + bob;
+
+    drawRings(cx, y, scale, t);
+
+    ctx.save();
+    ctx.translate(cx, y);
+    ctx.scale(scale, scale);
+
+    // Holographic scan glow behind the head
+    const halo = ctx.createRadialGradient(0, -10, 8, 0, -10, 132);
+    halo.addColorStop(0, "rgba(63,224,255,0.30)");
+    halo.addColorStop(0.6, "rgba(30,120,180,0.12)");
+    halo.addColorStop(1, "rgba(4,7,14,0)");
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(0, -6, 136, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Shoulders / bust
+    ctx.beginPath();
+    ctx.moveTo(-108, 190);
+    ctx.bezierCurveTo(-96, 118, -58, 96, 0, 96);
+    ctx.bezierCurveTo(58, 96, 96, 118, 108, 190);
+    ctx.lineTo(108, 214);
+    ctx.lineTo(-108, 214);
+    ctx.closePath();
+    const bust = ctx.createLinearGradient(0, 90, 0, 214);
+    bust.addColorStop(0, "rgba(63,224,255,0.20)");
+    bust.addColorStop(1, "rgba(10,40,66,0.55)");
+    ctx.fillStyle = bust;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(107,255,208,0.35)";
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // Neck
+    ctx.beginPath();
+    ctx.moveTo(-16, 62);
+    ctx.lineTo(-14, 96);
+    ctx.lineTo(14, 96);
+    ctx.lineTo(16, 62);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(20,70,105,0.55)";
+    ctx.fill();
+
+    // Hair back
+    ctx.beginPath();
+    ctx.ellipse(0, -18, 66, 88, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(12,52,84,0.85)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(63,224,255,0.30)";
+    ctx.stroke();
+
+    // Face
+    const faceGrad = ctx.createLinearGradient(0, -84, 0, 52);
+    faceGrad.addColorStop(0, "rgba(37,126,170,0.55)");
+    faceGrad.addColorStop(1, "rgba(16,74,108,0.72)");
+    ctx.beginPath();
+    ctx.ellipse(0, -16, 44, 58, 0, 0, Math.PI * 2);
+    ctx.fillStyle = faceGrad;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(107,255,208,0.40)";
+    ctx.lineWidth = 1.1;
+    ctx.stroke();
+
+    // Hair front sweeps
+    ctx.strokeStyle = "rgba(63,224,255,0.55)";
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(-44, -46);
+    ctx.bezierCurveTo(-30, -86, 26, -92, 44, -50);
+    ctx.stroke();
+    ctx.lineWidth = 1.6;
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.moveTo(-40 + i * 8, -52 - i * 4);
+      ctx.quadraticCurveTo(-20 + i * 12, -14, -34 + i * 26, 34 + i * 6);
+      ctx.strokeStyle = `rgba(63,224,255,${0.28 - i * 0.06})`;
+      ctx.stroke();
+    }
+
+    // Eyes with blink
+    const blinkPhase = state.blink;
+    const eyeOpen = Math.max(0.08, 1 - blinkPhase);
+    const eyeY = -22;
+    const drawEye = (ex) => {
+      ctx.beginPath();
+      ctx.ellipse(ex, eyeY, 8.4, 4.6 * eyeOpen, 0, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(215,246,255,0.88)";
+      ctx.fill();
+      if (eyeOpen > 0.35) {
+        ctx.beginPath();
+        ctx.arc(ex, eyeY, 2.9, 0, Math.PI * 2);
+        ctx.fillStyle = "#0a2f47";
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(ex - 1, eyeY - 1, 1.0, 0, Math.PI * 2);
+        ctx.fillStyle = "#eaffff";
+        ctx.fill();
+      }
+      // eyelid line
+      ctx.beginPath();
+      ctx.moveTo(ex - 9, eyeY - 5.6);
+      ctx.quadraticCurveTo(ex, eyeY - 9.2, ex + 9, eyeY - 5.6);
+      ctx.strokeStyle = "rgba(107,255,208,0.85)";
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+    };
+    drawEye(-17);
+    drawEye(17);
+
+    // Brows
+    ctx.strokeStyle = "rgba(63,224,255,0.75)";
+    ctx.lineWidth = 1.8;
+    [-17, 17].forEach((bx, i) => {
+      ctx.beginPath();
+      const lift = state.phase === "processing" ? -2.2 : 0;
+      const tilt = state.phase === "error" ? (i === 0 ? 2.5 : -2.5) : 0;
+      ctx.moveTo(bx - 10, eyeY - 12 + lift + tilt);
+      ctx.quadraticCurveTo(bx, eyeY - 16 + lift, bx + 10, eyeY - 12 + lift - tilt);
+      ctx.stroke();
+    });
+
+    // Nose hint
+    ctx.beginPath();
+    ctx.moveTo(0, -14);
+    ctx.lineTo(-2.5, 2);
+    ctx.strokeStyle = "rgba(107,255,208,0.25)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Lips with lip-sync
+    const speaking = state.phase === "speaking";
+    const amp = state.amplitude;
+    const mouthOpen = speaking ? 1.2 + amp * 10.5 : 0.9 + amp * 2.2;
+    const smile = state.phase === "error" ? -1.6 : 1.4;
+    ctx.beginPath();
+    ctx.moveTo(-13, 16);
+    ctx.quadraticCurveTo(0, 16 - smile + mouthOpen * 0.15, 13, 16);
+    ctx.quadraticCurveTo(0, 16 + mouthOpen + smile, -13, 16);
+    ctx.closePath();
+    const lipGrad = ctx.createLinearGradient(0, 12, 0, 16 + mouthOpen);
+    lipGrad.addColorStop(0, "rgba(107,255,208,0.92)");
+    lipGrad.addColorStop(1, "rgba(255,120,170,0.65)");
+    ctx.fillStyle = lipGrad;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.35)";
+    ctx.lineWidth = 0.8;
+    ctx.stroke();
+
+    // Cheek light
+    ctx.globalAlpha = 0.25 + amp * 0.3;
+    ctx.beginPath();
+    ctx.ellipse(-26, 4, 9, 5, 0, 0, Math.PI * 2);
+    ctx.ellipse(26, 4, 9, 5, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(107,255,208,0.5)";
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    ctx.restore();
+
+    // Scanlines over the whole figure
+    ctx.save();
+    ctx.globalAlpha = 0.05;
+    ctx.fillStyle = "#9ff7ff";
+    for (let sy = 0; sy < H; sy += 4) {
+      ctx.fillRect(0, sy, W, 1);
+    }
+    ctx.restore();
+  }
+
+  function loop(now) {
+    const t = now / 1000;
+    state.t = t;
+
+    if (now > state.nextBlink) {
+      state.blink += 0.18;
+      if (state.blink >= 1) {
+        state.blink = 0;
+        state.nextBlink = now + 2200 + Math.random() * 3600;
+      }
+    } else {
+      state.blink = 0;
+    }
+
+    ctx.clearRect(0, 0, W, H);
+    drawBackground(t);
+    drawAvatar(t);
+    requestAnimationFrame(loop);
+  }
+
+  /* ---------------------------------------------------------------- HUD */
+
+  function renderStatus() {
+    const s = state.status;
+    document.getElementById("phaseLabel").textContent = state.phase;
+    document.getElementById("taskLabel").textContent = state.task || "Say \u201cHey JARVIS\u201d or type a command.";
+    document.getElementById("detailLabel").textContent = state.detail || "";
+    document.getElementById("errorLabel").textContent = state.error || "";
+
+    const dot = document.getElementById("coreDot");
+    const label = document.getElementById("coreLabel");
+    if (state.core === true) {
+      dot.className = "dot online";
+      label.textContent = "core online";
+    } else if (state.core === false) {
+      dot.className = "dot offline";
+      label.textContent = "core offline";
+    } else {
+      dot.className = "dot";
+      label.textContent = "core unknown";
+    }
+
+    document.getElementById("micBtn").textContent = state.muted ? "Mic muted" : "Mic on";
+    document.getElementById("micBtn").className = "btn" + (state.muted ? " danger" : " active");
+    document.getElementById("listenBtn").textContent = state.wake ? "Listening" : "Wake word off";
+    document.getElementById("listenBtn").className = "btn" + (state.wake ? " active" : "");
+
+    if (!s) return;
+    document.getElementById("deviceLabel").textContent = `${s.device} \u00b7 Android ${s.android}`;
+
+    const chips = [];
+    const add = (text, ok) => chips.push(`<span class="chip ${ok ? "ok" : "bad"}">${text}</span>`);
+    add(s.paired ? "paired" : "not paired", !!s.paired);
+    add(s.model_installed ? "wake model" : "no model", !!s.model_installed);
+    add(s.wake_mode === "dual" ? "dual phrase" : "hey only", true);
+    const p = s.permissions || {};
+    add(p.microphone ? "mic" : "mic denied", !!p.microphone);
+    add(p.notification_access ? "notif access" : "no notif access", !!p.notification_access);
+    add(`${s.actions || 0} actions`, true);
+    add(s.voice || "voice", true);
+    document.getElementById("chips").innerHTML = chips.join("");
+  }
+
+  /* ---------------------------------------------------------------- bridge */
+
+  window.jarvis = {
+    setState(phase) { state.phase = phase; renderStatus(); },
+    setAmplitude(value) { state.amplitude = Math.max(0, Math.min(1, Number(value) || 0)); },
+    setTask(text) { state.task = text || ""; renderStatus(); },
+    setDetail(text) { state.detail = text || ""; renderStatus(); },
+    setError(text) { state.error = text || ""; renderStatus(); },
+    setMuted(muted) { state.muted = !!muted; renderStatus(); },
+    setWake(enabled) { state.wake = !!enabled; renderStatus(); },
+    setCore(online) { state.core = online === null ? null : !!online; renderStatus(); },
+    setStatus(json) {
+      try { state.status = typeof json === "string" ? JSON.parse(json) : json; } catch (e) { state.status = null; }
+      renderStatus();
+    }
+  };
+
+  function native() {
+    return (typeof JarvisNative !== "undefined") ? JarvisNative : null;
+  }
+
+  function refresh() {
+    const api = native();
+    if (!api) return;
+    try {
+      const json = api.status();
+      if (json) window.jarvis.setStatus(json);
+    } catch (e) { /* bridge not ready yet */ }
+  }
+
+  document.getElementById("micBtn").addEventListener("click", () => {
+    const api = native();
+    if (!api) return toast("Native bridge unavailable");
+    const muted = api.toggleMute();
+    window.jarvis.setMuted(muted);
+    toast(muted ? "Microphone muted" : "Microphone active");
+  });
+
+  document.getElementById("listenBtn").addEventListener("click", () => {
+    const api = native();
+    if (!api) return toast("Native bridge unavailable");
+    const next = !state.wake;
+    const ok = api.setListening(next);
+    if (!ok) return toast("Android refused to start the microphone service");
+    window.jarvis.setWake(next);
+    toast(next ? "Wake word enabled" : "Wake word disabled");
+    refresh();
+  });
+
+  document.getElementById("setupBtn").addEventListener("click", () => {
+    const api = native();
+    if (api) api.openSetup(); else toast("Native bridge unavailable");
+  });
+
+  document.getElementById("memoryBtn").addEventListener("click", () => {
+    const api = native();
+    if (api) api.openMemory(); else toast("Native bridge unavailable");
+  });
+
+  function sendTyped() {
+    const input = document.getElementById("commandInput");
+    const text = input.value.trim();
+    if (!text) return;
+    const api = native();
+    if (!api) return toast("Native bridge unavailable");
+    api.sendText(text);
+    input.value = "";
+  }
+
+  document.getElementById("sendBtn").addEventListener("click", sendTyped);
+  document.getElementById("commandInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); sendTyped(); }
+  });
+
+  resize();
+  requestAnimationFrame(loop);
+  refresh();
+  setInterval(refresh, 4000);
+})();
+</script>
+</body>
+</html>

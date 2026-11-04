@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">JARVIS UNIVERSAL</string>
+    <string name="setup_title">JARVIS Setup</string>
+    <string name="memory_title">JARVIS Memory</string>
+    <string name="notification_listener_label">JARVIS Notification Access</string>
+    <string name="accessibility_label">JARVIS Navigation (optional)</string>
+
+    <string name="channel_listening_name">Listening service</string>
+    <string name="channel_listening_desc">Shows when JARVIS is listening for its wake phrase.</string>
+    <string name="channel_alerts_name">Alerts</string>
+    <string name="channel_alerts_desc">Core status and recovery notices.</string>
+
+    <string name="notif_listening_muted">Microphone muted</string>
+    <string name="notif_listening_active">Listening for \"Hey JARVIS\"</string>
+    <string name="notif_action_mute">Mute</string>
+    <string name="notif_action_unmute">Unmute</string>
+    <string name="notif_action_stop">Stop</string>
+    <string name="notif_action_open">Open</string>
+
+    <string name="wake_state_listening">Listening</string>
+    <string name="wake_state_capturing">Listening to you…</string>
+    <string name="wake_state_processing">Thinking…</string>
+    <string name="wake_state_speaking">Speaking</string>
+    <string name="wake_state_idle">Idle</string>
+
+    <string name="error_mic_permission">Microphone permission is required for the wake word.</string>
+    <string name="error_model_missing">Wake word model is not installed yet.</string>
+    <string name="error_core_unreachable">Intelligence core is unreachable.</string>
+
+    <string name="battery_opt_title">Keep JARVIS listening</string>
+    <string name="battery_opt_text">Android may stop the listening service in the background. Allow JARVIS to run without battery restrictions for reliable wake-word detection.</string>
+</resources>

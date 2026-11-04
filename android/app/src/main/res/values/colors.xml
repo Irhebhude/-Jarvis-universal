@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="jarvis_void">#FF04070E</color>
+    <color name="jarvis_panel">#FF0A1322</color>
+    <color name="jarvis_cyan">#FF3FE0FF</color>
+    <color name="jarvis_mint">#FF6BFFD0</color>
+    <color name="jarvis_text">#FFD7F6FF</color>
+    <color name="jarvis_dim">#FF7593A8</color>
+    <color name="jarvis_warn">#FFFFC46B</color>
+    <color name="jarvis_error">#FFFF6B8A</color>
+    <color name="ic_launcher_background">#FF04070E</color>
+</resources>

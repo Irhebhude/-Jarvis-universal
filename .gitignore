@@ -1,0 +1,37 @@
+# Android / Gradle
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android/captures/
+*.apk
+*.aab
+*.jks
+*.keystore
+!android/keystore.properties.example
+
+# Termux core
+core/.venv/
+core/__pycache__/
+core/**/__pycache__/
+core/.pytest_cache/
+core/jarvis.db
+core/jarvis.db-*
+core/*.log
+core/models/
+core/vosk-model*/
+
+# Secrets and local state
+.env
+*.token
+bridge.token
+pairing.code
+config.local.json
+
+# Keystores / signing material
+signing/
+
+# Editor / OS
+.DS_Store
+*.swp
