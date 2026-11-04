@@ -32,12 +32,17 @@ a local bridge:
 
 ### The interface
 
-Rendered from `android/app/src/main/assets/hologram/index.html` (the app's actual WebView asset),
-with live state injected through the same `window.jarvis.*` bridge the Kotlin layer uses:
+A volumetric particle figure standing on a glowing pedestal, with live telemetry either side:
+`NEURAL INTERFACE` (wake model, phase, microphone waveform) and `AI CORE SYSTEMS`
+(registered action count, session uptime, selected voice). Every value is real — it comes from
+`JarvisNative.status()`, not a mock.
 
-| Listening | Speaking |
-|---|---|
-| ![listening](artifacts/hologram-listening.png) | ![speaking](artifacts/hologram-speaking.png) |
+| Idle | Listening | Speaking |
+|---|---|---|
+| ![idle](artifacts/hologram-idle.png) | ![listening](artifacts/hologram-listening.png) | ![speaking](artifacts/hologram-speaking.png) |
+
+Rendered from `android/app/src/main/assets/hologram/index.html` — the app's actual WebView asset —
+with state injected through the same `window.jarvis.*` bridge the Kotlin layer uses.
 
 Status summary (details in [docs/FEATURE_MATRIX.md](docs/FEATURE_MATRIX.md) and
 [docs/ACCEPTANCE_TESTS.md](docs/ACCEPTANCE_TESTS.md)):
