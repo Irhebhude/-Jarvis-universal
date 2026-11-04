@@ -174,6 +174,31 @@ _tool(ToolDef("set_wake_word_enabled", "Enable or disable the wake-word service.
     ArgRule("enabled", "boolean", required=True),
 )))
 
+# --- camera vision -------------------------------------------------------------------------
+# The phone owns the camera. These ids only start, stop and query it; the frame never becomes a
+# tool argument, so a model can never exfiltrate an image by naming a tool.
+_tool(ToolDef("camera_start", "Turn a camera on and start looking.", (
+    ArgRule("mode", "enum", required=True, enum=("front", "rear", "switch")),
+), danger="sensitive"))
+_tool(ToolDef("camera_stop", "Turn the camera off immediately."))
+_tool(ToolDef("camera_status", "Report which camera is active and whether the owner is visible."))
+_tool(ToolDef(
+    "camera_describe",
+    "Look through the camera and describe what is actually visible.",
+    (
+        ArgRule("question", "string", max_length=300),
+        ArgRule("camera", "enum", enum=("front", "rear", "current")),
+    ),
+    danger="sensitive",
+))
+_tool(ToolDef("camera_read_text", "Read text, documents or a screen through the camera.", (
+    ArgRule("camera", "enum", enum=("front", "rear", "current")),
+), danger="sensitive"))
+_tool(ToolDef("camera_identify", "Identify the object the camera is pointed at.", (
+    ArgRule("question", "string", max_length=300),
+    ArgRule("camera", "enum", enum=("front", "rear", "current")),
+), danger="sensitive"))
+
 
 def catalog() -> list[dict[str, Any]]:
     return [tool.json() for tool in TOOLS.values()]

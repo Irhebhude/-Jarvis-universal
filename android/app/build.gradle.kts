@@ -35,6 +35,14 @@ android {
         buildConfig = true
     }
 
+    defaultConfig {
+        // ML Kit ships native pipelines per ABI. Phones are ARM; keeping x86 in a single "universal"
+        // APK would roughly double the download for emulator-only binaries no owner needs.
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
+    }
+
     signingConfigs {
         if (hasReleaseKeystore) {
             create("release") {
@@ -95,6 +103,19 @@ dependencies {
 
     // Offline wake-word + speech recognition (Apache-2.0). Model files are installed on device.
     implementation("com.alphacephei:vosk-android:0.3.47")
+
+    // Camera capture (Apache-2.0) — CameraX handles both lenses and OEM quirks far better than
+    // raw Camera2, and unbinding releases the device cleanly on interruptions.
+    implementation("androidx.camera:camera-core:1.3.4")
+    implementation("androidx.camera:camera-camera2:1.3.4")
+    implementation("androidx.camera:camera-lifecycle:1.3.4")
+
+    // On-device vision (ML Kit, bundled models so nothing is fetched at runtime and frames never
+    // leave the handset unless the owner explicitly enables remote reasoning).
+    implementation("com.google.mlkit:face-detection:16.1.6")
+    implementation("com.google.mlkit:object-detection:17.0.2")
+    implementation("com.google.mlkit:text-recognition:16.0.0")
+    implementation("com.google.mlkit:barcode-scanning:17.2.0")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

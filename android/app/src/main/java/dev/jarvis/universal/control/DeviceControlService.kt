@@ -3,6 +3,7 @@ package dev.jarvis.universal.control
 import android.app.Application
 import dev.jarvis.universal.control.actions.ActionDeps
 import dev.jarvis.universal.control.actions.AppActions
+import dev.jarvis.universal.control.actions.CameraActions
 import dev.jarvis.universal.control.actions.CommsActions
 import dev.jarvis.universal.control.actions.DeviceActions
 import dev.jarvis.universal.control.actions.FileActions
@@ -39,7 +40,7 @@ class DeviceControlService(
     val permissionState = AndroidPermissionState(app)
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val deps = ActionDeps(app, prefs, permissionState)
+    private val deps = ActionDeps(app, prefs, permissionState, core)
 
     init {
         AppActions.register(registry, deps)
@@ -48,6 +49,7 @@ class DeviceControlService(
         NotificationActions.register(registry, deps)
         FileActions.register(registry, deps)
         SystemActions.register(registry, deps)
+        CameraActions.register(registry, deps)
         Logx.d(TAG, "registered ${registry.size()} actions: ${registry.ids().joinToString(",")}")
     }
 

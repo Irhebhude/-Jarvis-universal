@@ -23,30 +23,53 @@ Legend: ✅ verified here · 🟡 implemented, needs the device · ⛔ blocked b
 | 13 | Call initiation | Actual result reported | 🟡 needs SIM | “Call <name>” → confirmation → Telecom result; JARVIS must not claim “connected”. |
 | 14 | Battery reading | Real API reading | 🟡 | “Battery” → compare with the system status bar. |
 | 15 | Microphone mute | Stops listening | 🟡 | Notification action “Mute” → say the wake phrase → nothing happens; notification says muted. |
-| 16 | Camera permission | Not requested | ✅ | Manifest has no `CAMERA` permission and no camera code; review `AndroidManifest.xml`. |
+| 16 | Camera permission | Requested at first use, denial handled | ✅ code · 🟡 device | `CAMERA` is requested only when you first ask JARVIS to look (or Setup step 20). Denying it leaves every camera action refusing with `camera_permission_required` and a spoken reason. |
 | 17 | Unauthorized action | Rejected | ✅ core · 🟡 device | Core: unregistered tool ids and shell-like ids are rejected (tests + live HTTP). Device: `DeviceControlService` rejects unregistered ids, unknown args, missing permissions. |
 | 18 | Network unavailable | Graceful fallback | ✅ core | Offline provider returns a clear message; rule-based device commands keep working (tested). Cloud AI requests fail cleanly. |
 | 19 | AI provider unavailable | Clear error and recovery | ✅ core | `provider_unavailable` plan with spoken explanation; app still speaks it. |
 | 20 | Local model missing | Clear, actionable error | ✅ device code path | Vosk engine reports `model_missing` and posts “Wake word needs its model”. |
+
+| 21 | Front camera initialisation | Camera opens, notification names the lens | 🟡 device | Say “activate the front camera” → camera FGS notification `FRONT camera active`, HUD badge `FRONT CAM`, system privacy dot. |
+| 22 | Rear camera initialisation | Same for the rear lens | 🟡 device | “activate the rear camera”; point at a desk and check for object labels in the spoken status. |
+| 23 | Camera switching | Lens swaps without a conflict | 🟡 device | “switch camera” twice; only one lens is ever bound. |
+| 24 | Face detection | Face present flag is real | 🟡 device | Front camera, look at the phone → “camera status” reports someone in view. Look away → presence unchanged, facing becomes “no”. |
+| 25 | Face position estimation | Reported region matches reality | ✅ logic · 🟡 device | JVM tests cover the nine regions; on device, move to the frame edges and compare the spoken position. |
+| 26 | User presence detection | Absent when nobody is there | 🟡 device | Point the front camera at an empty room → “I do not see anyone in front of the camera.” |
+| 27 | Object detection | Labels match visible objects | 🟡 device | “what am I looking at” with a laptop/cup in view → labels in the answer. |
+| 28 | Object identification | Answer grounded in detections | 🟡 device | “identify this” over a bottle; must not name something absent. |
+| 29 | OCR | Text read from a real document | 🟡 device | “read this” over printed text; compare with the page. No text → honest refusal. |
+| 30 | Scene understanding | Hint, not a classifier | ✅ logic · 🟡 device | Desk labels → “a desk or workspace”; vehicle labels → street hint. |
+| 31 | Visual question answering | Provider only when multimodal | ✅ core (stub provider) · 🟡 device | pytest covers provider/fallback paths; on device enable step 21 and compare answers with and without a vision model. |
+| 32 | Voice-triggered activation | Planner maps the phrase | ✅ core rule tests · 🟡 device | “Hey JARVIS, activate rear camera” → `camera_start(mode=rear)`. |
+| 33 | Voice-triggered shutdown | Camera stops immediately | ✅ core rule tests · 🟡 device | “stop camera” → notification disappears, badge clears, no further frames. |
+| 34 | Permission denial | Clear, actionable refusal | 🟡 device | Revoke camera in system settings, say “activate the camera” → refusal plus a pointer to setup. |
+| 35 | Interruption recovery | Camera released, then recoverable | 🟡 device | Take a call / open another camera app → session stops with a message; ask again to resume. |
+| 36 | Battery and memory | No runaway analysis | 🟡 device | Battery stats over 10 minutes of front-camera listening; analysis is capped at 2 fps. |
+| 37 | Privacy controls | Every stop path works | 🟡 device | Notification “Stop camera”, voice stop, task swipe — all release the camera and clear frames. |
+| 38 | Real AI vision integration | End-to-end with the owner's key | 🟡 blocked by provider key | Needs a multimodal model key; without one the answer stays local and says so. |
 
 ## Automated checks that already ran
 
 **Android (JVM, no device):**
 
 ```
-18 tests completed — PASS
+40 tests completed — PASS
   WakePhraseMatcherTest   exact / near-miss / rejection / thresholds / normalization
   ArgValidatorTest        unknown args, ranges, enums, duplicates, shell-ish rejection
-assembleDebug   → app-debug.apk (42 MB)
-assembleRelease → app-release-unsigned.apk (41 MB)
+  SceneAnalysisTest       presence, facing thresholds, position, scene hints, change score,
+                          evidence payload, cadence throttling, lens parsing
+assembleDebug   → app-debug.apk (84 MB, ML Kit bundles + ARM libs only)
+assembleRelease → app-release-unsigned.apk (83 MB)
 ```
 
 **Core (pytest):**
 
 ```
-41 passed
+59 passed
   test_security.py  pairing single-use/expiry/attempts, token hashing, revoke, rate limiter
   test_memory.py    CRUD, disabled mode, secret refusal, encryption, bounded history, export
+  test_vision.py    provider vision capability inspection, fact grounding, fallback,
+                    endpoint auth/size/limit paths
   test_planner.py   rule intents, confirmations, dangerous refusal, LLM JSON validation,
                     compose-never-invents-success, plan persistence
   test_server.py    auth 401, origin 403, pairing flow, tools catalog, command+execute,

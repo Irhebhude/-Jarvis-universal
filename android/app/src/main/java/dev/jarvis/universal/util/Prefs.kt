@@ -83,6 +83,24 @@ class Prefs(context: Context) {
         get() = sp.getBoolean(KEY_WAKE_TEST_PENDING, false)
         set(value) = sp.edit().putBoolean(KEY_WAKE_TEST_PENDING, value).apply()
 
+    /**
+     * Camera vision. Off by default for remote reasoning: frames are analysed on-device unless the
+     * owner explicitly opts into sending a single frame to the configured AI provider.
+     */
+    var cameraRemoteVision: Boolean
+        get() = sp.getBoolean(KEY_CAMERA_REMOTE, false)
+        set(value) = sp.edit().putBoolean(KEY_CAMERA_REMOTE, value).apply()
+
+    /** Analysis frames per second. Deliberately low: 2 fps is plenty for presence and objects. */
+    var cameraFps: Int
+        get() = sp.getInt(KEY_CAMERA_FPS, 2).coerceIn(1, 10)
+        set(value) = sp.edit().putInt(KEY_CAMERA_FPS, value.coerceIn(1, 10)).apply()
+
+    /** OCR and barcode scanning run on every Nth analysed frame. */
+    var cameraTextEvery: Int
+        get() = sp.getInt(KEY_CAMERA_TEXT_EVERY, 3).coerceIn(1, 10)
+        set(value) = sp.edit().putInt(KEY_CAMERA_TEXT_EVERY, value.coerceIn(1, 10)).apply()
+
     /** Non-sensitive transcript of the last exchange, shown in the holographic interface. */
     var lastTask: String
         get() = sp.getString(KEY_LAST_TASK, "") ?: ""
@@ -112,5 +130,8 @@ class Prefs(context: Context) {
         private const val KEY_SETUP_DONE = "setup_complete"
         private const val KEY_WAKE_TEST_PENDING = "wake_test_pending"
         private const val KEY_LAST_TASK = "last_task"
+        private const val KEY_CAMERA_REMOTE = "camera_remote_vision"
+        private const val KEY_CAMERA_FPS = "camera_fps"
+        private const val KEY_CAMERA_TEXT_EVERY = "camera_text_every"
     }
 }

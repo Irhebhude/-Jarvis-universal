@@ -12,17 +12,39 @@
 | Secrets leaked into memory or logs | Credential patterns rejected; audit args redacted; provider keys read from env only |
 | Data theft from a lost phone | Android `allowBackup=false`, no cloud backup, token in Keystore, memories AES-encrypted at rest, DB `0600` |
 | Fake pairing (brute force) | 8-digit single-use codes, 300 s TTL, 5 attempts per code, 6 attempts/minute per client, codes stored hashed |
+| Camera used without the owner noticing | Camera-type foreground service + mandatory notification + system privacy indicator + HUD badge; stop action everywhere; no recording, no retention |
+| A plan weaponises the camera | Only `camera_start/stop/status/describe/read_text/identify` exist; images are never tool arguments; remote upload is a separate, off-by-default owner setting |
 | Notification content leakage | Text is read only after exclusions, never written to disk, buffer is in-memory and bounded |
 
-## Camera exclusion
+## Camera vision
 
-- No `<uses-permission android:name="android.permission.CAMERA"/>`.
-- No `<uses-feature android:name="android.hardware.camera">`.
-- No `android.hardware.Camera`, `Camera2`, `CameraX` import anywhere in the source.
-- The AI cannot request the camera: no action exists, and unknown tools are rejected.
+The camera is an opt-in feature with visible, revocable operation. What is guaranteed:
 
-Reviewed in `AndroidManifest.xml` and by searching the Kotlin sources. Any future camera request
-would have to add the permission *and* a new action, which the permission matrix forbids.
+- **Permission is requested at first use**, not at install. Denial simply leaves the camera off;
+  every camera action then fails with `camera_permission_required` and says why.
+- **Visible while active, three ways:** the mandatory `camera` foreground-service notification
+  (title `JARVIS · REAR camera active`), Android's own camera privacy indicator, and a red
+  `REAR CAM` / `FRONT CAM` badge in the holographic header. None can be hidden.
+- **Immediate stop:** the notification's “Stop camera” action, the voice command “stop camera”,
+  or killing the app. Stopping unbinds CameraX, releases the detector clients and clears every
+  in-memory frame in the same call.
+- **No recording, no retention.** No `MediaRecorder`, no video files, no image files, no database
+  rows. At most **one** JPEG exists, in memory, and only while a question is being answered.
+- **On-device by default.** Face, object, text and barcode detection all run through bundled ML Kit
+  models on the handset. `PIPELINE: frame → ML Kit → SceneSnapshot` never leaves the phone.
+- **Remote reasoning is off until enabled** (Setup step 21, `camera_remote_vision=false`). When on,
+  a single still frame per question is POSTed to the loopback core, which forwards it to the
+  provider the owner configured. A continuous feed is never uploaded and there is no streaming path.
+- **No identity claims.** Face detection reports presence and orientation only; the app never
+  stores a face template and never asserts who someone is.
+- **Android limits are respected, not bypassed.** The camera starts only from a visible activity
+  (foreground-service rules) and cannot run while the device is locked. Those refusals are spoken.
+- **The AI cannot open the camera on its own.** Only the registered `camera_start` action can, and
+  only with an enum argument (`front` / `rear` / `switch`) — there is no free-form camera control and
+  no way to pass an image as a tool argument.
+
+Verified by source review and by the JVM/pytest suites; on-device camera behaviour is **not**
+claimed until a phone runs it (see `ACCEPTANCE_TESTS.md`, rows 21–38).
 
 ## Microphone
 
@@ -75,7 +97,8 @@ reported to the owner, never silently dropped:
 - root/su, privileged shell, remote script piping (`curl … | sh`), mass deletion
 - disabling security, device admin, VPN, or the JARVIS service itself
 - payments, transfers, purchases
-- camera, screenshots, covert recording, "record everything"
+- covert or locked-device camera use, screenshots, surreptitious recording, "record everything"
+  (explicit, notified camera requests are allowed — see *Camera vision* above)
 - reading or exporting credentials, OTPs, password managers
 - deleting files, formatting storage, factory reset
 
@@ -95,6 +118,8 @@ reported to the owner, never silently dropped:
 | `ACCESS_FINE_LOCATION` | "where am I" | Last known fix only, stated as possibly stale |
 | `BODY_SENSORS` | "heart rate" | Only if hardware exists |
 | `SYSTEM_ALERT_WINDOW` | Setup | Needed to open apps while the UI is closed (Android 10+ blocks background starts) |
+| `CAMERA` | First "look" request or Setup step 20 | Camera vision; without it every camera action refuses with a spoken reason |
+| `FOREGROUND_SERVICE_CAMERA` | Manifest (normal permission) | Declares the camera foreground-service type Android 14+ requires |
 | Notification listener | Setup (optional) | Notification summaries; text read only after exclusions |
 | Accessibility service | Setup (optional) | Global back/home/recents only — `onAccessibilityEvent` discards everything, no content flags requested |
 

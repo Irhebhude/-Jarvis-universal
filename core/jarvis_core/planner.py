@@ -253,6 +253,39 @@ class Planner:
         if re.search(r"\b(?:enable|turn on|start)\b.*\bwake\s*word\b", text):
             return spoken("Turning the wake word on.", _action("set_wake_word_enabled", enabled=True))
 
+        # --- camera vision (the phone owns the hardware; these plans only steer it)
+        if re.search(r"\b(?:stop|close|turn off|deactivate|shut)\b[^.]*\bcamera\b", text) or re.fullmatch(
+            r"(?:stop|close) (?:the )?camera", text
+        ):
+            return spoken("Turning the camera off.", _action("camera_stop"))
+        if re.search(r"\b(?:switch|swap|flip|other)\b[^.]*\bcamera\b", text) or re.search(
+            r"\bcamera\b[^.]*\b(?:switch|swap|flip)\b", text
+        ):
+            return spoken("Switching to the other camera.", _action("camera_start", mode="switch"))
+        if re.search(r"\b(?:can you see|do you see|am i visible|are you watching)\b", text):
+            return spoken("Checking what I can see.",
+                          _action("camera_describe", camera="front", question=original[:300]))
+        if re.search(r"\b(?:read|what does it say|what is written|what's written)\b", text) and re.search(
+            r"\b(?:this|that|it|screen|document|page|sign|label|book|letter|receipt)\b", text
+        ):
+            return spoken("Let me read that.", _action("camera_read_text", camera="current"))
+        if re.search(r"\bidentify\b|\bwhat am i holding\b|\bwhat is this\b|\bwhat's this\b", text):
+            return spoken("Let me take a look.",
+                          _action("camera_identify", camera="current", question=original[:300]))
+        if re.search(
+            r"\b(?:what do you see|what can you see|what am i looking at|describe (?:my )?surroundings|"
+            r"describe what you see|look at this|look around|examine this|inspect this)\b",
+            text,
+        ):
+            return spoken("Looking now.",
+                          _action("camera_describe", camera="current", question=original[:300]))
+        if re.search(r"\b(?:front|selfie)\b[^.]*\bcamera\b|\bcamera\b[^.]*\bfront\b", text):
+            return spoken("Turning on the front camera.", _action("camera_start", mode="front"))
+        if re.search(r"\b(?:rear|back)\b[^.]*\bcamera\b|\bcamera\b[^.]*\b(?:rear|back)\b", text):
+            return spoken("Turning on the rear camera.", _action("camera_start", mode="rear"))
+        if re.search(r"\b(?:start|open|activate|enable|turn on)\b[^.]*\bcamera\b|^camera on$", text):
+            return spoken("Turning the rear camera on.", _action("camera_start", mode="rear"))
+
         # --- status
         if re.search(r"\b(?:what are you doing|your status|how are you|are you listening)\b", text):
             return spoken("Let me check my own state.", _action("jarvis_status"))

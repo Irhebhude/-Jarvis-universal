@@ -40,6 +40,16 @@
   .dot.online { background: #7fffc4; color: #7fffc4; }
   .dot.offline { background: var(--err); color: var(--err); }
 
+  /* Camera-active indicator: required privacy signal, mirrors the system privacy dot. */
+  .cam {
+    display: none; align-items: center; gap: 4px; margin-left: 8px; padding: 2px 6px;
+    border: 1px solid rgba(255,120,150,.55); border-radius: 999px;
+    color: #ff9db1; font-size: 7.5px; letter-spacing: .14em; text-transform: uppercase;
+    background: rgba(60,10,20,.35);
+  }
+  .cam.on { display: inline-flex; }
+  .cam b { width: 4px; height: 4px; border-radius: 50%; background: #ff6b8a; box-shadow: 0 0 7px #ff6b8a; }
+
   /* ----------------------------------------------------------- telemetry */
   .telemetry { display: flex; justify-content: space-between; gap: 8px; padding: 10px 9px 0; }
 
@@ -137,7 +147,10 @@
 <div class="hud">
   <header>
     <div class="brand">JARVIS UNIVERSAL<small id="deviceLabel">device</small></div>
-    <div class="status-dot"><span class="dot" id="coreDot"></span><span id="coreLabel">core</span></div>
+    <div class="status-dot">
+      <span class="dot" id="coreDot"></span><span id="coreLabel">core</span>
+      <span class="cam" id="camBadge"><b></b><span id="camLabel">cam</span></span>
+    </div>
   </header>
 
   <div class="telemetry">
@@ -204,6 +217,7 @@
     detail: "",
     error: "",
     status: null,
+    camera: null,
     t: 0,
     bootAt: Date.now()
   };
@@ -794,6 +808,19 @@
     if (cls !== undefined) el.className = cls;
   }
 
+  function renderCamera() {
+    const badge = document.getElementById("camBadge");
+    const label = document.getElementById("camLabel");
+    if (!badge || !label) return;
+    const cam = state.camera;
+    if (cam && cam.active && cam.lens) {
+      badge.className = "cam on";
+      label.textContent = cam.lens === "front" ? "front cam" : "rear cam";
+    } else {
+      badge.className = "cam";
+    }
+  }
+
   function renderStatus() {
     const s = state.status;
     const busy = state.phase === "speaking" || state.phase === "thinking" || state.phase === "executing";
@@ -880,6 +907,11 @@
     setMuted(muted) { state.muted = !!muted; renderStatus(); },
     setWake(enabled) { state.wake = !!enabled; renderStatus(); },
     setCore(online) { state.core = online === null ? null : !!online; renderStatus(); },
+    setCamera(json) {
+      try { state.camera = typeof json === "string" ? JSON.parse(json) : json; }
+      catch (e) { state.camera = null; }
+      renderCamera();
+    },
     setStatus(json) {
       try { state.status = typeof json === "string" ? JSON.parse(json) : json; }
       catch (e) { state.status = null; }
@@ -898,6 +930,9 @@
       const json = api.status();
       if (json) window.jarvis.setStatus(json);
     } catch (e) { /* bridge not ready yet */ }
+    try {
+      if (typeof api.cameraState === "function") window.jarvis.setCamera(api.cameraState());
+    } catch (e) { /* older build without the camera bridge */ }
   }
 
   document.getElementById("micBtn").addEventListener("click", () => {

@@ -1,5 +1,6 @@
 package dev.jarvis.universal.ui
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Build
@@ -8,6 +9,7 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -18,6 +20,9 @@ import dev.jarvis.universal.R
 import dev.jarvis.universal.service.ServiceControlReceiver
 import dev.jarvis.universal.service.WakeWordService
 import dev.jarvis.universal.util.Logx
+import dev.jarvis.universal.vision.Lens
+import dev.jarvis.universal.vision.VisionRepository
+import dev.jarvis.universal.vision.VisionService
 import dev.jarvis.universal.wake.WakeEngineFactory
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -33,6 +38,26 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private lateinit var app: JarvisApp
+
+    /** Lens to open once the owner answers the camera permission dialog. */
+    private var pendingCameraLens: Lens? = null
+
+    private val cameraPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        val lens = pendingCameraLens ?: Lens.REAR
+        pendingCameraLens = null
+        if (granted) {
+            startCamera(lens)
+        } else {
+            Toast.makeText(
+                this,
+                "Camera permission denied. JARVIS cannot look until you grant it in setup.",
+                Toast.LENGTH_LONG
+            ).show()
+            pushCameraState()
+        }
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -63,6 +88,53 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         webView.post { pushFullState() }
+        pushCameraState()
+    }
+
+    private fun hasCameraPermission(): Boolean =
+        app.control.permissionState.isGranted(Manifest.permission.CAMERA)
+
+    private fun startCamera(lens: Lens) {
+        if (!hasCameraPermission()) {
+            pendingCameraLens = lens
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+            return
+        }
+        val refusal = VisionService.start(this, lens)
+        if (refusal != null) {
+            Toast.makeText(
+                this,
+                "Android refused to start the camera from here.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+        pushCameraState()
+    }
+
+    private fun stopCamera() {
+        VisionService.stop(this)
+        pushCameraState()
+    }
+
+    private fun cameraStateJson(): String {
+        val json = JSONObject()
+            .put("active", VisionRepository.isActive)
+            .put("lens", VisionRepository.activeLens?.wire ?: JSONObject.NULL)
+            .put("permission", hasCameraPermission())
+            .put("remote", app.prefs.cameraRemoteVision)
+            .put("error", VisionRepository.lastError ?: JSONObject.NULL)
+        val snapshot = VisionRepository.snapshot
+        if (snapshot != null) {
+            json.put("faces", snapshot.faces.size)
+            json.put("objects", snapshot.objects.size)
+        }
+        return json.toString()
+    }
+
+    private fun pushCameraState() {
+        webView.post {
+            evaluate("window.jarvis.setCamera(${JSONObject.quote(cameraStateJson())})")
+        }
     }
 
     private fun observeState() {
@@ -120,6 +192,7 @@ class MainActivity : AppCompatActivity() {
         evaluate("window.jarvis.setWake(${JarvisState.wakeEnabled.value})")
         evaluate("window.jarvis.setTask(${JSONObject.quote(JarvisState.task.value)})")
         evaluate("window.jarvis.setDetail(${JSONObject.quote(JarvisState.detail.value)})")
+        evaluate("window.jarvis.setCamera(${JSONObject.quote(cameraStateJson())})")
     }
 
     private fun evaluate(script: String) {
@@ -147,6 +220,10 @@ class MainActivity : AppCompatActivity() {
             .put("device", "${Build.MANUFACTURER} ${Build.MODEL}")
             .put("android", Build.VERSION.RELEASE)
             .put("actions", app.control.registry.size())
+            .put(
+                "camera",
+                JSONObject(cameraStateJson())
+            )
         val perms = JSONObject()
         permissions.forEach { (key, value) -> perms.put(key, value) }
         json.put("permissions", perms)
@@ -209,6 +286,21 @@ class MainActivity : AppCompatActivity() {
         fun openMemory() = runOnUiThread {
             startActivity(Intent(this@MainActivity, MemoryActivity::class.java))
         }
+
+        @JavascriptInterface
+        fun cameraState(): String = cameraStateJson()
+
+        /** Called from the holographic interface. Returns false when a permission grant is pending. */
+        @JavascriptInterface
+        fun startCamera(lens: String): Boolean {
+            val target = Lens.parse(lens) ?: VisionRepository.activeLens?.let(Lens::other) ?: Lens.REAR
+            val hadPermission = hasCameraPermission()
+            runOnUiThread { this@MainActivity.startCamera(target) }
+            return hadPermission
+        }
+
+        @JavascriptInterface
+        fun stopCamera() = runOnUiThread { this@MainActivity.stopCamera() }
 
         @JavascriptInterface
         fun sendText(text: String) {

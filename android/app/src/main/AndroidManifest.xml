@@ -4,9 +4,11 @@
 
     <!-- ============================================================
          JARVIS UNIVERSAL — permissions
-         Camera is intentionally NOT declared and is never requested.
-         Every other permission is requested lazily, only when the
-         owner enables the feature that needs it (see SetupActivity).
+         Camera vision is opt-in: the permission is requested only when
+         the owner first asks JARVIS to look, and the camera runs only
+         while visible + while the camera foreground service is active.
+         Every other permission is requested lazily, only when the owner
+         enables the feature that needs it (see SetupActivity).
          ============================================================ -->
 
     <!-- Always-on voice -->
@@ -18,6 +20,12 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
+    <!-- Camera vision (front + rear). Requested at first use, never at install. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.front" android:required="false" />
 
     <!-- Needed only so JARVIS can launch apps / bring its own interface forward while its UI is
          closed. Android 10+ blocks background activity starts without this legitimate grant; the
@@ -102,6 +110,13 @@
             android:name=".ui.MemoryActivity"
             android:exported="false"
             android:label="@string/memory_title" />
+
+        <!-- Camera foreground service: declared with the camera type so Android 14+ can enforce
+             that the camera is only used while this service is visibly running. -->
+        <service
+            android:name=".vision.VisionService"
+            android:exported="false"
+            android:foregroundServiceType="camera" />
 
         <!-- Persistent microphone foreground service (wake word + command capture) -->
         <service

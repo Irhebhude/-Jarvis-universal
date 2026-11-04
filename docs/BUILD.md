@@ -38,7 +38,7 @@ cd android && ./gradlew testDebugUnitTest
 # report: app/build/reports/tests/testDebugUnitTest/index.html
 ```
 
-18 tests: `WakePhraseMatcherTest` (exact phrase, near-miss rejection, sensitivity thresholds,
+40 tests: `SceneAnalysisTest` (camera scene logic), `WakePhraseMatcherTest` (exact phrase, near-miss rejection, sensitivity thresholds,
 normalisation, cooldown) and `ArgValidatorTest` (unknown args, ranges, enums, length limits,
 duplicate detection, shell-metacharacter rejection). They are plain JVM tests — no device, no
 Robolectric, no `org.json` stubs.
@@ -48,7 +48,7 @@ Robolectric, no `org.json` stubs.
 ```bash
 cd android
 ./gradlew assembleRelease
-# android/app/build/outputs/apk/release/app-release-unsigned.apk (41 MB)
+# android/app/build/outputs/apk/release/app-release-unsigned.apk (83 MB)
 ```
 
 ### Signing (required to install a release APK)
@@ -83,7 +83,7 @@ $ANDROID_HOME/build-tools/34.0.0/apksigner verify --print-certs app-release.apk
 cd core
 python3 -m venv .venv
 .venv/bin/pip install -r requirements-dev.txt
-.venv/bin/python -m pytest -q          # 41 passed
+.venv/bin/python -m pytest -q          # 59 passed
 .venv/bin/python -m jarvis_core diagnostics
 ```
 

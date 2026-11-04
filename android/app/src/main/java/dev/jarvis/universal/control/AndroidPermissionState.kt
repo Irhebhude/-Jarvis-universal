@@ -89,6 +89,7 @@ class AndroidPermissionState(private val context: Context) {
             isGranted(Manifest.permission.ACCESS_FINE_LOCATION) ||
                 isGranted(Manifest.permission.ACCESS_COARSE_LOCATION)
             ),
+        "camera" to isGranted(Manifest.permission.CAMERA),
         "activity_recognition" to if (Build.VERSION.SDK_INT >= 29) {
             isGranted(Manifest.permission.ACTIVITY_RECOGNITION)
         } else true,

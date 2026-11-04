@@ -128,6 +128,68 @@ the platform recognizer.
 
 Credential-shaped content is rejected with `400` and never stored.
 
+## `POST /vision/analyze`
+
+One captured frame plus the phone's on-device measurements. Requires the device bearer token.
+
+```json
+{
+  "image_b64": "<jpeg, optional>",
+  "mime": "image/jpeg",
+  "question": "what am I looking at?",
+  "camera": "rear",
+  "facts": {
+    "camera": "rear",
+    "faces": 0,
+    "user_present": false,
+    "facing_camera": "unknown",
+    "objects": [{"label": "laptop", "confidence": 0.91}],
+    "text": "Invoice 4471",
+    "codes": ["https://example.com/x"],
+    "scene": "a desk or workspace",
+    "width": 640,
+    "height": 480,
+    "frame_age_ms": 120
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "answer": "A laptop sits on a wooden desk.",
+  "source": "provider",
+  "model": "gpt-4o-mini",
+  "camera": "rear",
+  "detail": "",
+  "remote": true,
+  "facts": {"faces": 0, "objects": 1, "text_chars": 13, "codes": 1}
+}
+```
+
+- `source` is `provider` when the configured model accepted the image, `local-facts` when the answer
+  was built only from the measurements (text-only model, provider error, or no frame supplied).
+- The image is **optional**. Without it — or with a text-only model — the answer is still grounded in
+  `facts`, and `detail` explains why.
+- Limits: body size `max_image_bytes` (default 2.5 MB, `JARVIS_MAX_IMAGE_BYTES`), base64 validated,
+  `413 image_too_large` / `400 invalid_base64`. Set `JARVIS_VISION=off` to disable remote analysis
+  entirely, or `JARVIS_VISION_MODEL` to name a separate multimodal model without changing the
+  primary text model.
+
+## Camera actions the device must implement
+
+The core can only plan these ids; the phone executes them.
+
+| Tool id | Arguments | Effect |
+|---|---|---|
+| `camera_start` | `mode`: `front` \| `rear` \| `switch` | Starts the camera foreground service for a lens |
+| `camera_stop` | — | Releases the camera immediately |
+| `camera_status` | — | Lens, presence, facing, object count |
+| `camera_describe` | `question`, `camera` | Frame → on-device detection → grounded answer (+ provider if enabled) |
+| `camera_read_text` | `camera` | OCR of the current view |
+| `camera_identify` | `question`, `camera` | Object labels + optional VQA |
+
 ## `GET /integrations/status`
 
 ```json

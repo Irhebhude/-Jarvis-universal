@@ -20,10 +20,12 @@ Verified nothing on hardware — this workspace has no phone. What follows is wh
 
 | Item | Requirement |
 |---|---|
-| ABI | arm64-v8a (normal on modern phones); Vosk ships arm64 + armeabi-v7a + x86_64 |
+| ABI | arm64-v8a or armeabi-v7a (the APK is limited to those two so the ML Kit native pipelines are not shipped four times); Vosk ships the same two |
 | RAM | ~180 MB app + ~120 MB model; 2 GB devices are tight with other apps |
-| Free storage | ~120 MB (APK 42 MB + model ~40 MB) |
+| Free storage | ~170 MB (APK 84 MB with bundled ML Kit + wake model ~40 MB) |
 | Microphone | Required |
+| Cameras | Rear and/or front camera; `CAMERA` runtime permission; ABSENT cameras fail with `camera_missing_front/rear` instead of crashing |
+| Camera API | CameraX 1.3.4 over Camera2 (API 26+); ML Kit 16/17 bundled models — no Play Services download needed for detection |
 | Speech engine | Any installed TTS engine; female voice depends on what the OEM ships |
 | Speech recognizer | Google or an OEM recognizer for the Android-ASR fallback; not required if core Vosk transcription is installed |
 | Termux | F-Droid build (Play build is restricted), Python 3.10+ |
@@ -71,8 +73,8 @@ diagnostics script prints the battery-optimisation state when `dumpsys` is reada
 ## Tested in this workspace
 
 - `assembleDebug` and `assembleRelease` with JDK 17 / Android SDK 34 / Gradle 8.7 → success.
-- 18 JVM unit tests (wake matching, argument validation) → pass.
-- Core: 41 pytest tests + live HTTP smoke test → pass.
+- 40 JVM unit tests (wake matching, argument validation, camera scene logic) → pass.
+- Core: 59 pytest tests + live HTTP smoke test → pass.
 
 ## Not tested here (needs the owner's phone)
 

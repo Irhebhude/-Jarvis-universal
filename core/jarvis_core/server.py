@@ -29,6 +29,7 @@ from .planner import Planner
 from .providers import build_provider
 from .security import DeviceAuth, PairingService, RateLimiter
 from .tools import TOOLS, catalog
+from .vision import VisionEngine, VisionFacts
 
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1", "127.0.0.1:8765"}
 
@@ -54,6 +55,14 @@ class TranscriptRequest(BaseModel):
     format: str = Field(default="pcm16", max_length=16)
     sample_rate: int = Field(default=16000, ge=8000, le=48000)
     audio_b64: str = Field(min_length=1)
+
+
+class VisionRequest(BaseModel):
+    image_b64: str = Field(default="", max_length=4_200_000)
+    mime: str = Field(default="image/jpeg", max_length=40)
+    question: str = Field(default="", max_length=400)
+    camera: str = Field(default="rear", max_length=16)
+    facts: dict[str, Any] = Field(default_factory=dict)
 
 
 class DeviceEvent(BaseModel):
@@ -108,6 +117,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     pairing = PairingService(db, settings.pair_ttl_seconds)
     provider = build_provider(settings)
     planner = Planner(settings, db, memory, provider)
+    vision = VisionEngine(provider, settings)
     transcriber = LocalTranscriber(settings.stt_model_path)
     limiter = RateLimiter(settings.rate_limit_per_minute)
     pair_limiter = RateLimiter(settings.pair_attempts_per_minute)
@@ -127,6 +137,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.pairing = pairing
     app.state.planner = planner
     app.state.transcriber = transcriber
+    app.state.vision = vision
     app.state.hub = hub
     app.state.device_actions = set(TOOLS)
     app.state.last_device_event = None
@@ -261,6 +272,37 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(status_code=500, detail="transcription_failed") from None
         return {"text": text, "source": "core-vosk"}
 
+    @app.post("/vision/analyze")
+    def vision_analyze(
+        payload: VisionRequest, device: dict = Depends(require_device)
+    ) -> dict[str, Any]:
+        """Reason over one frame the handset captured and analysed locally."""
+        if len(payload.image_b64) > settings.max_image_bytes * 4 // 3 + 512:
+            raise HTTPException(status_code=413, detail="image_too_large")
+        if payload.image_b64:
+            try:
+                base64.b64decode(payload.image_b64, validate=True)
+            except Exception:
+                raise HTTPException(status_code=400, detail="invalid_base64") from None
+        facts = VisionFacts.parse(payload.facts, payload.camera)
+        answer = vision.analyze(payload.image_b64, payload.mime, payload.question, facts)
+        db.audit(
+            "device",
+            "vision_analyze",
+            f"camera={facts.camera} source={answer.source} objects={len(facts.objects)}",
+            True,
+        )
+        return {
+            **answer.json(),
+            "remote": vision.remote_available,
+            "facts": {
+                "faces": facts.faces,
+                "objects": len(facts.objects),
+                "text_chars": len(facts.text),
+                "codes": len(facts.codes),
+            },
+        }
+
     @app.get("/integrations/status")
     def integrations(device: dict = Depends(require_device)) -> dict[str, Any]:
         return {
@@ -274,6 +316,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "bridge": {"devices": len(auth.devices()), "connected": hub.count > 0},
             "device_actions": sorted(app.state.device_actions),
             "tools_registered": sorted(TOOLS),
+            "vision": {
+                "remote_analysis": vision.remote_available,
+                "model": vision.vision_model if vision.remote_available else "",
+                "enabled": settings.vision_enabled,
+                "note": "frames are analysed on-device unless remote analysis is enabled",
+            },
         }
 
     @app.post("/device/event")

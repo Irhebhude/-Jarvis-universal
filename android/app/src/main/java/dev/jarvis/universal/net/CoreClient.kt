@@ -197,6 +197,30 @@ class CoreClient(private val prefs: Prefs, private val secrets: SecretStore) {
             if (result.code == 501) null else json.optString("text").ifBlank { null }
         }
 
+    /**
+     * Sends one captured frame plus the on-device measurements to the core's vision adapter.
+     * Returns null when the core cannot answer, so the caller can speak the local evidence instead.
+     */
+    suspend fun analyzeImage(
+        jpeg: ByteArray?,
+        question: String,
+        camera: String,
+        facts: JSONObject
+    ): JSONObject? = withContext(Dispatchers.IO) {
+        val payload = JSONObject()
+            .put("image_b64", jpeg?.let { Base64.encodeToString(it, Base64.NO_WRAP) } ?: "")
+            .put("mime", "image/jpeg")
+            .put("question", question.take(300))
+            .put("camera", camera)
+            .put("facts", facts)
+        try {
+            JSONObject(executeJson("POST", "/vision/analyze", payload))
+        } catch (e: Exception) {
+            Logx.w(TAG, "vision analysis unavailable: ${e.javaClass.simpleName}")
+            null
+        }
+    }
+
     suspend fun postEvent(type: String, payload: JSONObject): Boolean = withContext(Dispatchers.IO) {
         try {
             val body = JSONObject().put("type", type).put("payload", payload).put("ts", System.currentTimeMillis())

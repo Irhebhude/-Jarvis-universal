@@ -27,13 +27,43 @@ Five connected components, exactly as specified.
 | `control/JarvisAccessibilityService.kt` | Optional global navigation only (no content access) |
 | `notify/Notifications.kt` | Notification listener + in-memory buffer with exclusions |
 | `ui/MainActivity.kt` | Holographic WebView host + JS bridge |
-| `ui/SetupActivity.kt` | 20-step setup, per-feature permission requests |
+| `ui/SetupActivity.kt` | 22-step setup, per-feature permission requests |
 | `ui/MemoryActivity.kt` | View / delete / export / disable memory |
 | `model/ModelInstaller.kt` | Download or import the offline wake model |
 | `util/SecretStore.kt` | AES-256-GCM Keystore storage for the device token |
 
-The app has **no camera permission and no camera code**. `Backup` is disabled and data extraction
-rules exclude everything.
+`Backup` is disabled and data extraction rules exclude everything.
+
+### 1.1 Camera vision pipeline
+
+```
+VisionService (foreground, type=camera, notification + stop action)
+        │  CameraX ImageAnalysis, 640×480, KEEP_ONLY_LATEST, ~2 fps
+        ▼
+VisionAnalyzer ── FaceDetector ── ObjectDetector ── TextRecognizer ── BarcodeScanner
+        │            (all bundled ML Kit, on device; OCR every 3rd analysed frame)
+        ▼
+SceneSnapshot  →  SceneAnalysis (presence, facing, position, scene hint, change score)
+        │
+        ▼
+CameraActions (camera_start/stop/status/describe/read_text/identify)
+        │                         │
+        │ local evidence only     └─ if camera_remote_vision is ON:
+        ▼                            one JPEG → core /vision/analyze → provider
+spoken answer                     (only when the configured model accepts images)
+```
+
+Design choices worth knowing:
+
+- **CameraX, not raw Camera2.** Lens switching, rotation and interruption recovery come for free,
+  and `unbindAll()` is a reliable release path on OEM quirks.
+- **A foreground service with `foregroundServiceType="camera"`**, started only from a visible
+  activity. Android 12+ refuses background foreground-service starts; the action returns
+  `camera_background_blocked` and JARVIS says the app must be on screen.
+- **Frames are never arguments.** `Intent`/`JSONObject` payloads carry measurements only; the single
+  in-memory JPEG is fetched by the device when it decides to ask the core.
+- **Two-lane reasoning kept intact.** The rule lane answers camera commands with no provider at all;
+  the provider lane only adds detail when its model is multimodal.
 
 ## 2. Termux intelligence core (Python)
 

@@ -303,9 +303,40 @@ class SetupActivity : AppCompatActivity() {
             }
         )
 
+        permissionStep(
+            title = "20. Camera vision (front and rear)",
+            description = "Requested only when you ask JARVIS to look. While active the camera " +
+                "runs in a foreground service with a visible notification and a red system privacy " +
+                "dot, shows a badge in the interface, and stops on \u201cstop camera\u201d. Frames are " +
+                "analysed on this phone and never recorded or saved.",
+            permission = Manifest.permission.CAMERA
+        )
+
         step(
-            "20. Diagnostics",
-            "Permissions, core reachability and the last log lines.",
+            "21. Remote visual reasoning (optional)",
+            "Off by default. When on, one still frame per question is sent to your configured AI " +
+                "provider for reasoning. When off, every answer comes from on-device detection only.",
+            status = {
+                if (app.prefs.cameraRemoteVision) {
+                    Status("On \u00b7 one frame per question leaves this phone", true, warn = true)
+                } else {
+                    Status("Off \u00b7 everything stays on this device", true)
+                }
+            },
+            actionLabel = if (app.prefs.cameraRemoteVision) "Turn off" else "Turn on"
+        ) {
+            app.prefs.cameraRemoteVision = !app.prefs.cameraRemoteVision
+            Toast.makeText(
+                this,
+                if (app.prefs.cameraRemoteVision) "Remote vision enabled" else "Remote vision disabled",
+                Toast.LENGTH_SHORT
+            ).show()
+            render()
+        }
+
+        step(
+            "22. Diagnostics",
+            "Permissions, camera state, core reachability and the last log lines.",
             status = {
                 val perms = app.control.permissionReport()
                 val granted = perms.count { it.value }
@@ -775,6 +806,13 @@ class SetupActivity : AppCompatActivity() {
             appendLine("Core: ${app.core.baseUrl} \u00b7 paired=${app.core.hasPairedToken()}")
             appendLine("Wake model: ${installer.installedSizeMb()} MB")
             appendLine("Registered actions: ${app.control.registry.size()}")
+            val lens = dev.jarvis.universal.vision.VisionRepository.activeLens
+            val snapshot = dev.jarvis.universal.vision.VisionRepository.snapshot
+            appendLine(
+                "Camera: " + (lens?.let { "${it.wire} active" } ?: "off") +
+                    " \u00b7 remote reasoning=${app.prefs.cameraRemoteVision}" +
+                    (snapshot?.let { " \u00b7 faces=${it.faces.size} objects=${it.objects.size}" } ?: "")
+            )
             appendLine()
             appendLine("Recent log")
             Logx.recent(25).forEach { appendLine("  $it") }

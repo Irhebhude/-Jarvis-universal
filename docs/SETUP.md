@@ -94,7 +94,7 @@ or accessibility service can be enabled for a sideloaded app.
 
 ---
 
-## Part C — the 20 setup steps (in-app **Setup** tab)
+## Part C — the 22 setup steps (in-app **Setup** tab)
 
 Open JARVIS UNIVERSAL → **Setup**. Each row shows live status and a button. Do them in order.
 
@@ -119,7 +119,23 @@ Open JARVIS UNIVERSAL → **Setup**. Each row shows live status and a button. Do
 | 17 | **Wake word test** → *Run test*, say “Hey JARVIS” | Beep, then it speaks “I heard you say …” |
 | 18 | **Command test** → *Run test* (“what is my battery level”) | Real percentage spoken |
 | 19 | **Background operation** → press Home, say the wake phrase | Works with the app closed |
-| 20 | **Diagnostics** → review permissions and log | Shows what is granted/missing |
+| 20 | **Camera vision** → *Grant* | ✓ camera. Nothing is captured until you ask; while active you get a notification, a HUD badge and the system privacy dot |
+| 21 | **Remote visual reasoning** → leave **Off** unless you want one still frame per question sent to your AI provider | “Off · everything stays on this device” (or the warning line when on) |
+| 22 | **Diagnostics** → review permissions, camera state and log | Shows what is granted/missing |
+
+### Camera commands
+
+Once step 20 is granted (and the app is on screen — Android refuses background camera starts):
+
+| Say | What happens |
+|---|---|
+| “activate the rear camera” / “activate the front camera” | Camera foreground service starts for that lens |
+| “switch camera” | Swaps to the other lens |
+| “what do you see” / “what am I looking at” | Frame → on-device detection → spoken answer |
+| “read this” | OCR of whatever the lens is pointed at |
+| “identify this” / “what am I holding” | Object labels, plus provider reasoning if enabled |
+| “can you see me” | Front-camera presence and facing check |
+| “stop camera” | Releases the camera immediately (also on the notification) |
 
 ### After setup: start listening
 
@@ -146,7 +162,7 @@ indicator that JARVIS can hear you.
 | “Forget that” / Memory screen | Deletes |
 
 Safety: risky actions (calls, messages, settings) always ask for a spoken “yes” first. Refusals
-(root, payments, camera, deleting files, exposing credentials) are spoken, not silent.
+(root, payments, covert recording, deleting files, exposing credentials) are spoken, not silent.
 
 ---
 

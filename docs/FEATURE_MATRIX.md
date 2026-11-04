@@ -18,7 +18,7 @@ This workspace has **no Android device and no Termux device**. Everything that n
 | Requirement | Status | Evidence / note |
 |---|---|---|
 | Wake detection while UI closed | Implemented | `WakeWordService` is a microphone foreground service; `MainActivity` is independent. Not device-tested. |
-| “Hey JARVIS” | Implemented, locally tested (matcher) | 18 JVM tests cover exact, near-miss and rejection cases. Vosk grammar includes the phrase. |
+| “Hey JARVIS” | Implemented, locally tested (matcher) | 40 JVM tests cover exact, near-miss and rejection cases plus camera scene logic. Vosk grammar includes the phrase. |
 | “JARVIS” alone | Implemented, locally tested (matcher) | Stricter threshold; only allowed in DUAL mode. |
 | Offline detection, no audio upload | Implemented | Vosk runs locally; wake audio never leaves the device. |
 | Dual sensitivity control | Implemented | Slider 0–100 → thresholds; `WakePhraseMatcher.thresholdsForSensitivity`. |
@@ -129,3 +129,37 @@ policy and structured result. Unknown ids and unknown arguments are rejected.
 | SIM / telephony hardware | Hardware | Calls, SIM listing, SMS |
 | Hardware sensors | Hardware | Sensor readings |
 | Default-dialer role | System role | In-call service features — **not implemented** |
+
+## 8. Camera vision (front + rear)
+
+| Requirement | Status | Evidence / note |
+|---|---|---|
+| Front camera initialisation | Implemented | `VisionService` + `CameraSession` bind `LENS_FACING_FRONT`; not device-tested |
+| Rear camera initialisation | Implemented | Same path with `LENS_FACING_BACK` |
+| Camera switching | Implemented, locally tested (logic) | `camera_start(mode=switch)` resolves the other lens; `Lens.parse`/`Lens.other` covered by JVM tests |
+| Face detection | Implemented | ML Kit `FaceDetector`, bundled model, on device |
+| Face position estimation | Implemented, locally tested | `SceneAnalysis.position` nine-region mapping (JVM tests) |
+| Head orientation / facing camera | Implemented, locally tested | yaw ≤30°, pitch ≤24° → “yes”; otherwise “no” (JVM tests) |
+| User presence detection | Implemented, locally tested | `SceneAnalysis.presence`: present / absent / unknown |
+| Visual attention tracking | Implemented (per snapshot) | eye-open probability + yaw/pitch per frame; no persistent tracking store |
+| User identification | **Not implemented** | Deliberate: no face templates, no identity claims. Requires a separate biometric setup that the owner has not authorised |
+| Object detection + classification | Implemented | ML Kit `ObjectDetector` (stream mode, multiple objects) |
+| OCR / document / screen text | Implemented | ML Kit `TextRecognizer`, every 3rd analysed frame |
+| Barcode / QR | Implemented | ML Kit `BarcodeScanner` |
+| Scene understanding | Implemented (coarse, honest) | `SceneAnalysis.sceneHint` maps detected labels to a hint; not presented as a classifier |
+| Visual question answering | Integration tested (core) / Implemented (device) | `VisionEngine.analyze` + `/vision/analyze` covered by pytest with stub providers; on-device path not device-tested |
+| Object identification command | Implemented | `camera_identify` → labels + optional VQA |
+| Activity recognition (visual) | **Blocked** | Would need a dedicated activity model; JARVIS reports object/scene hints only and does not claim activity inference |
+| Visual change detection | Implemented, locally tested | Label-set Jaccard + OCR delta (`SceneAnalysis.changeScore`, JVM tests) |
+| Voice command integration | Implemented, locally tested (planner) | Planner rules map “activate the rear camera”, “what do you see”, “read this”, “switch camera”, “stop camera” to camera tools; pytest covers rules |
+| Camera permission handling | Implemented | Runtime request at first use + Setup step 20; denial → spoken `camera_permission_required` |
+| Camera unavailable / no lens | Implemented | `hasCamera(selector)` check → `camera_missing_front/rear` |
+| Interruption recovery | Implemented | CameraX unbind/rebind; error callback stops the service and clears frames |
+| Conflicting camera sessions | Implemented | Single `CameraSession`; `unbindAll()` before every bind |
+| Battery / memory optimisation | Implemented | 2 fps analysis (adjustable), 640×480, KEEP_ONLY_LATEST, OCR every 3rd frame, detectors closed on stop |
+| Rotation / orientation | Implemented | `ImageProxy.rotationDegrees` applied to still encodes; ML Kit receives rotation |
+| Visible camera indicator | Implemented | Notification title names the lens; HUD badge `REAR CAM`/`FRONT CAM`; system privacy dot |
+| Privacy switch / immediate shutdown | Implemented | Notification “Stop camera”, voice “stop camera”, `camera_stop` action |
+| No recording / no retention | Implemented | No `MediaRecorder`, no file or DB writes; ≤1 in-memory JPEG |
+| Remote processing disclosure | Implemented | Off by default; Setup step 21 states that one frame per question leaves the phone when enabled |
+| Background / locked-device camera | **Blocked by Android** | Camera only from a visible activity; locked-device and background starts are refused and reported |

@@ -79,6 +79,9 @@ class Settings:
     rate_limit_per_minute: int = 180
     pair_attempts_per_minute: int = 6
     max_audio_bytes: int = 10_000_000
+    max_image_bytes: int = 2_500_000
+    vision_enabled: bool = True
+    vision_model: str = ""
     max_command_chars: int = 2000
     request_timeout_seconds: float = 45.0
     memory_history_turns: int = 8
@@ -133,6 +136,9 @@ class Settings:
             ),
             base_url=_default_base_url(provider),
             stt_model_path=stt_path,
+            vision_enabled=_first_env("JARVIS_VISION").lower() not in ("0", "off", "false", "no"),
+            vision_model=_first_env("JARVIS_VISION_MODEL"),
+            max_image_bytes=int(_first_env("JARVIS_MAX_IMAGE_BYTES") or 2_500_000),
             log_level=_first_env("JARVIS_LOG_LEVEL") or "info",
         )
 
@@ -149,6 +155,11 @@ class Settings:
             "configured": self.configured,
             "speech_recognition": "vosk" if self._stt_available() else "none",
             "max_command_chars": self.max_command_chars,
+            "vision": {
+                "enabled": self.vision_enabled,
+                "model": self.vision_model or self.model,
+                "max_image_bytes": self.max_image_bytes,
+            },
         }
 
     def _stt_available(self) -> bool:
